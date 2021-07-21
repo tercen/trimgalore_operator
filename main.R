@@ -32,7 +32,7 @@ for (first_in_pair_index in seq(1, length(file_names), by = 2)) {
   writeBin(ctx$client$fileService$download(dodId_r2), filename_r2)
   on.exit(unlink(filename_r2))
   
-  cmd <- paste("trimgalore --output_dir",
+  cmd <- paste("trim_galore --output_dir",
                paste0("output_dir_", first_in_pair_index),
                "--paired",
                filename_r1, filename_r2)
