@@ -14,6 +14,8 @@ file_names <- sapply(documentIds[[1]],
 if((length(file_names) %% 2) != 0) stop("Non-even number of files supplied. Are you sure you've supplied paired-end files?")
 
 
+documentIds_to_output <- c()
+
 for (first_in_pair_index in seq(1, length(file_names), by = 2)) {
   
   docIds = file_names[first_in_pair_index:(first_in_pair_index+1)]
@@ -31,9 +33,34 @@ for (first_in_pair_index in seq(1, length(file_names), by = 2)) {
   on.exit(unlink(filename_r2))
   
   cmd <- paste("trimgalore --output_dir",
-               filename_r1,
+               paste0("output_dir_", first_in_pair_index),
                "--paired",
                filename_r1, filename_r2)
   
+  for (filename in list.files(paste0("output_dir_", first_in_pair_index),
+                          pattern = "*fq.gz",
+                          full.names = TRUE)) {
+    
+    bytes = readBin(file(filename, 'rb'), 
+                                raw(), 
+                                n=file.info(filename)$size)
+    
+    fileDoc = FileDocument$new()
+    fileDoc$name = filename
+    fileDoc$projectId = doc_r1$projectId
+    fileDoc$acl$owner = doc_r1$acl$owner
+    fileDoc$size = length(bytes)
+    
+    fileDoc = ctx$client$fileService$upload(fileDoc, bytes)
+   
+    documentIds_to_output <- append(documentIds_to_output,
+                                    fileDoc$id)
+     
+  }
 }
 
+
+(tibble(documentId = documentIds_to_output) %>%
+    mutate(.ci = 0) %>%
+    ctx$addNamespace() %>%
+    ctx$save())
