@@ -2,16 +2,24 @@ library(tercen)
 library(dplyr)
 
 options("tercen.workflowId" = "0796038ab232707b473f109e77005e85")
-options("tercen.stepId"     = "063e26df-16b3-4477-aefe-7bec98774754")
+options("tercen.stepId"     = "38d5bc5c-1d7f-4207-ad0f-26b3ff143e07")
 
 getOption("tercen.workflowId")
 getOption("tercen.stepId")
 
 ctx <- tercenCtx()
 
-if (!any(ctx$cnames == "documentId")) stop("Column factor documentId is required") 
+#if (!any(ctx$cnames == "documentId")) stop("Column factor documentId is required") 
 
-documentIds <- ctx$cselect("documentId")
+documentIds <- ctx$cselect()
+
+for (id in documentIds[[1]]) {
+  
+  res <- try(ctx$client$fileService$get(id),silent = TRUE)
+  if (class(res) == "try-error") stop("Supplied column values are not valid documentIds.")
+  
+  
+}
 
 file_names <- sapply(documentIds[[1]],
                      function(x) (ctx$client$fileService$get(x))$name) %>%
@@ -19,6 +27,8 @@ file_names <- sapply(documentIds[[1]],
 
 if((length(file_names) %% 2) != 0) stop("Non-even number of files supplied. Are you sure you've supplied paired-end files?")
 
+
+documentIds_to_output <- c()
 
 for (first_in_pair_index in seq(1, length(file_names), by = 2)) {
   
@@ -37,11 +47,36 @@ for (first_in_pair_index in seq(1, length(file_names), by = 2)) {
   on.exit(unlink(filename_r2))
   
   cmd <- paste("trimgalore --output_dir",
-               filename_r1,
+               paste0("output_dir_", first_in_pair_index),
                "--paired",
                filename_r1, filename_r2)
   
+  system(cmd)
+  
+  for (filename in list.files(paste0("output_dir_", first_in_pair_index),
+                              pattern = "*fq.gz",
+                              full.names = TRUE)) {
+    
+    bytes = readBin(file(filename, 'rb'), 
+                    raw(), 
+                    n=file.info(filename)$size)
+    
+    fileDoc = FileDocument$new()
+    fileDoc$name = filename
+    fileDoc$projectId = doc_r1$projectId
+    fileDoc$acl$owner = doc_r1$acl$owner
+    fileDoc$size = length(bytes)
+    
+    fileDoc = ctx$client$fileService$upload(fileDoc, bytes)
+    
+    documentIds_to_output <- append(documentIds_to_output,
+                                    fileDoc$id)
+    
+  }
 }
 
 
-
+(tibble(documentId = documentIds_to_output) %>%
+    mutate(.ci = 0) %>%
+    ctx$addNamespace() %>%
+    ctx$save())
