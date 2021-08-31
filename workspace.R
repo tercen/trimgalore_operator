@@ -1,5 +1,6 @@
 library(tercen)
 library(dplyr)
+library(stringr)
 
 options("tercen.workflowId" = "0796038ab232707b473f109e77005e85")
 options("tercen.stepId"     = "e0e69250-92a9-4f67-ac3c-3af9e4c39911")

@@ -1,5 +1,6 @@
 library(tercen)
 library(dplyr)
+library(stringr)
 
 serialize.to.string = function(object){
   con = rawConnection(raw(0), "r+")
