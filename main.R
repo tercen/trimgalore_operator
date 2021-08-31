@@ -1,76 +1,165 @@
 library(tercen)
 library(dplyr)
 
+serialize.to.string = function(object){
+  con = rawConnection(raw(0), "r+")
+  saveRDS(object, con)
+  str64 = base64enc::base64encode(rawConnectionValue(con))
+  close(con)
+  return(str64)
+}
+deserialize.from.string = function(str64){
+  con = rawConnection(base64enc::base64decode(str64), "r+")
+  object = readRDS(con)
+  close(con)
+  return(object)
+}
+
+find.schema.by.factor.name = function(ctx, factor.name){
+  visit.relation = function(visitor, relation){
+    if (inherits(relation,"SimpleRelation")){
+      visitor(relation)
+    } else if (inherits(relation,"CompositeRelation")){
+      visit.relation(visitor, relation$mainRelation)
+      lapply(relation$joinOperators, function(jop){
+        visit.relation(visitor, jop$rightRelation)
+      })
+    } else if (inherits(relation,"WhereRelation") 
+               || inherits(relation,"RenameRelation")){
+      visit.relation(visitor, relation$relation)
+    } else if (inherits(relation,"UnionRelation")){
+      lapply(relation$relations, function(rel){
+        visit.relation(visitor, rel)
+      })
+    } 
+    invisible()
+  }
+  
+  myenv = new.env()
+  add.in.env = function(object){
+    myenv[[toString(length(myenv)+1)]] = object$id
+  }
+  
+  visit.relation(add.in.env, ctx$query$relation)
+  
+  schemas = lapply(as.list(myenv), function(id){
+    ctx$client$tableSchemaService$get(id)
+  })
+  
+  Find(function(schema){
+    !is.null(Find(function(column) column$name == factor.name, schema$columns))
+  }, schemas);
+}
+
+
 ctx <- tercenCtx()
 
-#if (!any(ctx$cnames == "documentId")) stop("Column factor documentId is required") 
 
-documentIds <- ctx$cselect()
+schema <- find.schema.by.factor.name(ctx, names(ctx$cselect())[[1]])
 
-for (id in documentIds[[1]]) {
-  
-  res <- try(ctx$client$fileService$get(id),silent = TRUE)
-  if (class(res) == "try-error") stop("Supplied column values are not valid documentIds.")
-  
-  
-}
+table <- ctx$client$tableSchemaService$select(schema$id, Map(function(x) x$name, schema$columns), 0, schema$nRows)
 
-file_names <- sapply(documentIds[[1]],
-                     function(x) (ctx$client$fileService$get(x))$name) %>%
-  sort()
+table <- as_tibble(table)
 
-if((length(file_names) %% 2) != 0) stop("Non-even number of files supplied. Are you sure you've supplied paired-end files?")
+hidden_colnames <- colnames(table)[str_starts(colnames(table), "\\.")]
 
+is_paired_end <- as.character(ctx$op.value('paired_end'))
 
-documentIds_to_output <- c()
-
-for (first_in_pair_index in seq(1, length(file_names), by = 2)) {
+if (is_paired_end == "yes") {
   
-  docIds = file_names[first_in_pair_index:(first_in_pair_index+1)]
-  
-  dodId_r1 <- names(docIds)[[1]]
-  doc_r1 <- ctx$client$fileService$get(dodId_r1)
-  filename_r1 <- docIds[[1]]
-  writeBin(ctx$client$fileService$download(dodId_r1), filename_r1)
-  on.exit(unlink(filename_r1))
-  
-  dodId_r2 <- names(docIds)[[2]]
-  doc_r2 <- ctx$client$fileService$get(dodId_r2)
-  filename_r2 <- docIds[[2]]
-  writeBin(ctx$client$fileService$download(dodId_r2), filename_r2)
-  on.exit(unlink(filename_r2))
-  
-  cmd <- paste("trim_galore --output_dir",
-               paste0("output_dir_", first_in_pair_index),
-               "--paired",
-               filename_r1, filename_r2)
-
-  system(cmd)
-  
-  for (filename in list.files(paste0("output_dir_", first_in_pair_index),
-                          pattern = "*fq.gz",
-                          full.names = TRUE)) {
+  if (!((".forward_read_fastq_data" %in% hidden_colnames) &
+        (".reverse_read_fastq_data" %in% hidden_colnames))) {
     
-    bytes = readBin(file(filename, 'rb'), 
-                                raw(), 
-                                n=file.info(filename)$size)
+    stop("Input is not samples containing paired-end fastq data.")
     
-    fileDoc = FileDocument$new()
-    fileDoc$name = strsplit(filename, "/")[[1]][[2]]
-    fileDoc$projectId = doc_r1$projectId
-    fileDoc$acl$owner = doc_r1$acl$owner
-    fileDoc$size = length(bytes)
-    
-    fileDoc = ctx$client$fileService$upload(fileDoc, bytes)
-   
-    documentIds_to_output <- append(documentIds_to_output,
-                                    fileDoc$id)
-     
   }
+  
+  
+  output_table <- tibble()
+  
+  for (i in 1:nrow(table)) {
+    
+    sample_name <- select(table, ends_with(".sample"))[[i]]
+    
+    filename_r1 <- paste0(sample_name, "1.fastq.gz")
+    filename_r2 <- paste0(sample_name, "2.fastq.gz")
+    
+    writeBin(deserialize.from.string(table[".forward_read_fastq_data"][[1]]), filename_r1)
+    writeBin(deserialize.from.string(table[".reverse_read_fastq_data"][[1]]), filename_r2)
+    
+    cmd <- paste("trim_galore --output_dir",
+                 paste0("output_dir_", i),
+                 "--paired",
+                 filename_r1, filename_r2)
+    
+    system(cmd)
+    
+    filename_val1 <- paste0("output_dir_", i, "/", sample_name, "1_val_1.fq.gz")
+    bytes_val1 <- readBin(file(filename_val1, 'rb'),
+                          raw(),
+                          n=file.info(filename_val1)$size)
+    
+    filename_val2 <- paste0("output_dir_", i, "/", sample_name, "2_val_2.fq.gz")
+    bytes_val2 <- readBin(file(filename_val2, 'rb'),
+                          raw(),
+                          n=file.info(filename_val2)$size)
+    
+    string_val1 <- serialize.to.string(bytes_val1)
+    string_val2 <- serialize.to.string(bytes_val2)
+    
+    output_table <- bind_rows(output_table,
+                              tibble(sample = sample_name,
+                                     .forward_read_fastq_data = string_val1,
+                                     .reverse_read_fastq_data = string_val2))
+    
+  }
+  
+  
+} else if (is_paired_end == "no") {
+  
+  if (!(".single_end_fastq_data" %in% hidden_colnames)) {
+    
+    stop("Input is not samples containing single-end fastq data.")
+    
+  }
+  
+  
+  output_table <- tibble()
+  
+  for (i in 1:nrow(table)) {
+    
+    sample_name <- select(table, ends_with(".sample"))[[i]]
+    
+    filename <- sample_name
+    
+    writeBin(deserialize.from.string(table[".single_end_fastq_data"][[1]]), filename)
+    
+    cmd <- paste("trim_galore --output_dir",
+                 paste0("output_dir_", i),
+                 filename)
+    
+    system(cmd)
+    
+    filename_trimmed <- list.files(paste0("output_dir_", i),
+                                   pattern = "*fq.gz",
+                                   full.names = TRUE)[[1]]
+    
+    bytes_trimmed <- readBin(file(filename_trimmed, 'rb'),
+                             raw(),
+                             n=file.info(filename_trimmed)$size)
+    
+    string_trimmed <- serialize.to.string(bytes_trimmed)
+    
+    output_table <- bind_rows(output_table,
+                              tibble(sample = sample_name,
+                                     .single_end_fastq_data = string_trimmed))
+    
+  }
+  
 }
 
+output_table %>%
+  mutate(.ci = 1) %>%
+  ctx$addNamespace() %>%
+  ctx$save()
 
-(tibble(documentId = documentIds_to_output) %>%
-    mutate(.ci = 0) %>%
-    ctx$addNamespace() %>%
-    ctx$save())
