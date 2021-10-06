@@ -88,7 +88,7 @@ if (is_paired_end == "yes") {
     writeBin(deserialize.from.string(table[".forward_read_fastq_data"][[1]][[i]]), filename_r1)
     writeBin(deserialize.from.string(table[".reverse_read_fastq_data"][[1]][[i]]), filename_r2)
     
-    cmd <- paste("-",
+    cmd <- paste("trim_galore --output_dir",
                  paste0("output_dir_", i),
                  "--paired",
                  filename_r1, filename_r2)
