@@ -80,15 +80,15 @@ if (is_paired_end == "yes") {
   
   for (i in 1:nrow(table)) {
     
-    sample_name <- select(table, ends_with(".sample"))[[i]]
+    sample_name <- select(table, ends_with(".sample"))[[1]][[i]]
     
     filename_r1 <- paste0(sample_name, "1.fastq.gz")
     filename_r2 <- paste0(sample_name, "2.fastq.gz")
     
-    writeBin(deserialize.from.string(table[".forward_read_fastq_data"][[1]]), filename_r1)
-    writeBin(deserialize.from.string(table[".reverse_read_fastq_data"][[1]]), filename_r2)
+    writeBin(deserialize.from.string(table[".forward_read_fastq_data"][[1]][[i]]), filename_r1)
+    writeBin(deserialize.from.string(table[".reverse_read_fastq_data"][[1]][[i]]), filename_r2)
     
-    cmd <- paste("trim_galore --output_dir",
+    cmd <- paste("-",
                  paste0("output_dir_", i),
                  "--paired",
                  filename_r1, filename_r2)
@@ -129,11 +129,11 @@ if (is_paired_end == "yes") {
   
   for (i in 1:nrow(table)) {
     
-    sample_name <- select(table, ends_with(".sample"))[[i]]
+    sample_name <- select(table, ends_with(".sample"))[[1]][[i]]
     
     filename <- sample_name
     
-    writeBin(deserialize.from.string(table[".single_end_fastq_data"][[1]]), filename)
+    writeBin(deserialize.from.string(table[".single_end_fastq_data"][[1]][[i]]), filename)
     
     cmd <- paste("trim_galore --output_dir",
                  paste0("output_dir_", i),

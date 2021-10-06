@@ -2,8 +2,8 @@ library(tercen)
 library(dplyr)
 library(stringr)
 
-options("tercen.workflowId" = "0796038ab232707b473f109e77005e85")
-options("tercen.stepId"     = "e0e69250-92a9-4f67-ac3c-3af9e4c39911")
+options("tercen.workflowId" = "933d7cdead59b980b3bfeb9f50029d79")
+options("tercen.stepId"     = "8a86af16-3e27-4fdf-9157-854bc5885a2c")
 
 getOption("tercen.workflowId")
 getOption("tercen.stepId")
@@ -86,15 +86,15 @@ if (is_paired_end == "yes") {
   
   for (i in 1:nrow(table)) {
     
-    sample_name <- select(table, ends_with(".sample"))[[i]]
+    sample_name <- select(table, ends_with(".sample"))[[1]][[i]]
     
     filename_r1 <- paste0(sample_name, "1.fastq.gz")
     filename_r2 <- paste0(sample_name, "2.fastq.gz")
     
-    writeBin(deserialize.from.string(table[".forward_read_fastq_data"][[1]]), filename_r1)
-    writeBin(deserialize.from.string(table[".reverse_read_fastq_data"][[1]]), filename_r2)
+    writeBin(deserialize.from.string(table[".forward_read_fastq_data"][[1]][[i]]), filename_r1)
+    writeBin(deserialize.from.string(table[".reverse_read_fastq_data"][[1]][[i]]), filename_r2)
     
-    cmd <- paste("trim_galore --output_dir",
+    cmd <- paste("-",
                  paste0("output_dir_", i),
                  "--paired",
                  filename_r1, filename_r2)
@@ -135,12 +135,12 @@ if (is_paired_end == "yes") {
   
   for (i in 1:nrow(table)) {
     
-    sample_name <- select(table, ends_with(".sample"))[[i]]
+    sample_name <- select(table, ends_with(".sample"))[[1]][[i]]
     
     filename <- sample_name
-
-    writeBin(deserialize.from.string(table[".single_end_fastq_data"][[1]]), filename)
-
+    
+    writeBin(deserialize.from.string(table[".single_end_fastq_data"][[1]][[i]]), filename)
+    
     cmd <- paste("trim_galore --output_dir",
                  paste0("output_dir_", i),
                  filename)
@@ -150,13 +150,13 @@ if (is_paired_end == "yes") {
     filename_trimmed <- list.files(paste0("output_dir_", i),
                                    pattern = "*fq.gz",
                                    full.names = TRUE)[[1]]
-
+    
     bytes_trimmed <- readBin(file(filename_trimmed, 'rb'),
-                          raw(),
-                          n=file.info(filename_trimmed)$size)
+                             raw(),
+                             n=file.info(filename_trimmed)$size)
     
     string_trimmed <- serialize.to.string(bytes_trimmed)
-
+    
     output_table <- bind_rows(output_table,
                               tibble(sample = sample_name,
                                      .single_end_fastq_data = string_trimmed))
@@ -169,3 +169,4 @@ output_table %>%
   mutate(.ci = 1) %>%
   ctx$addNamespace() %>%
   ctx$save()
+
