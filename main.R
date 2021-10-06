@@ -93,14 +93,21 @@ if (is_paired_end == "yes") {
                  "--paired",
                  filename_r1, filename_r2)
     
-    system(cmd)
+    print(cmd)
     
+    system(cmd)
+
+    list.files(paste0("output_dir_", i))
+        
     filename_val1 <- paste0("output_dir_", i, "/", sample_name, "1_val_1.fq.gz")
+    
+    print(filename_val1)
     bytes_val1 <- readBin(file(filename_val1, 'rb'),
                           raw(),
                           n=file.info(filename_val1)$size)
     
     filename_val2 <- paste0("output_dir_", i, "/", sample_name, "2_val_2.fq.gz")
+    print(filename_val2)
     bytes_val2 <- readBin(file(filename_val2, 'rb'),
                           raw(),
                           n=file.info(filename_val2)$size)
