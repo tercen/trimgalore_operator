@@ -94,19 +94,26 @@ if (is_paired_end == "yes") {
     writeBin(deserialize.from.string(table[".forward_read_fastq_data"][[1]][[i]]), filename_r1)
     writeBin(deserialize.from.string(table[".reverse_read_fastq_data"][[1]][[i]]), filename_r2)
     
-    cmd <- paste("-",
+    cmd <- paste("trim_galore --output_dir",
                  paste0("output_dir_", i),
                  "--paired",
                  filename_r1, filename_r2)
     
+    print(cmd)
+    
     system(cmd)
     
+    list.files(paste0("output_dir_", i))
+    
     filename_val1 <- paste0("output_dir_", i, "/", sample_name, "1_val_1.fq.gz")
+    
+    print(filename_val1)
     bytes_val1 <- readBin(file(filename_val1, 'rb'),
                           raw(),
                           n=file.info(filename_val1)$size)
     
     filename_val2 <- paste0("output_dir_", i, "/", sample_name, "2_val_2.fq.gz")
+    print(filename_val2)
     bytes_val2 <- readBin(file(filename_val2, 'rb'),
                           raw(),
                           n=file.info(filename_val2)$size)
@@ -162,6 +169,29 @@ if (is_paired_end == "yes") {
                                      .single_end_fastq_data = string_trimmed))
     
   }
+  
+}
+
+
+save_output <- as.character(ctx$op.value('save_output_to_folder'))
+
+if (is_paired_end == "yes") {
+  
+  # create trim galore zipped output
+  system("tar czvf trim_galore_output.gzip output_dir_*")
+  
+  # save zipped file to project folder
+  filename <- "trim_galore_output.gzip"
+  bytes = readBin(file(filename, 'rb'),
+                  raw(),
+                  n = file.info(filename)$size)
+  
+  fileDoc = FileDocument$new()
+  fileDoc$name = paste0(ctx$stepId, "_", filename)
+  fileDoc$projectId = ctx$cschema$projectId
+  fileDoc$size = length(bytes)
+  
+  fileDoc = ctx$client$fileService$upload(fileDoc, bytes)
   
 }
 

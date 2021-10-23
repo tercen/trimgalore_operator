@@ -166,6 +166,29 @@ if (is_paired_end == "yes") {
   
 }
 
+
+save_output <- as.character(ctx$op.value('save_output_to_folder'))
+
+if (is_paired_end == "yes") {
+  
+  # create trim galore zipped output
+  system("tar czvf trim_galore_output.gzip output_dir_*")
+  
+  # save zipped file to project folder
+  filename <- "trim_galore_output.gzip"
+  bytes = readBin(file(filename, 'rb'),
+                  raw(),
+                  n = file.info(filename)$size)
+  
+  fileDoc = FileDocument$new()
+  fileDoc$name = paste0(ctx$stepId, "_", filename)
+  fileDoc$projectId = ctx$cschema$projectId
+  fileDoc$size = length(bytes)
+  
+  fileDoc = ctx$client$fileService$upload(fileDoc, bytes)
+  
+}
+
 output_table %>%
   mutate(.ci = 1) %>%
   ctx$addNamespace() %>%
