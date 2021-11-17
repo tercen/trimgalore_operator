@@ -174,10 +174,10 @@ if (save_output == "yes") {
   output_folder_prefix <- as.character(ctx$op.value('output_folder_prefix'))
   
   # create trim galore zipped output
-  system("tar czvf trim_galore_output.gzip output_dir_*")
+  system("zip -r trim_galore_output.zip output_dir_*")
   
   # save zipped file to project folder
-  filename <- "trim_galore_output.gzip"
+  filename <- "trim_galore_output.zip"
   bytes = readBin(file(filename, 'rb'),
                   raw(),
                   n = file.info(filename)$size)
