@@ -2,8 +2,8 @@ library(tercen)
 library(dplyr)
 library(stringr)
 
-options("tercen.workflowId" = "933d7cdead59b980b3bfeb9f50029d79")
-options("tercen.stepId"     = "8a86af16-3e27-4fdf-9157-854bc5885a2c")
+options("tercen.workflowId" = "06d4d91bf720350a985388b51902fb6e")
+options("tercen.stepId"     = "53589f29-002e-4929-b73f-c9fcfd17de12")
 
 getOption("tercen.workflowId")
 getOption("tercen.stepId")
@@ -64,6 +64,12 @@ ctx <- tercenCtx()
 
 schema <- find.schema.by.factor.name(ctx, names(ctx$cselect())[[1]])
 
+if (length(ctx$cselect()) == 2 ) {
+  new_name_column_id = ctx$cselect()[[2]]
+} else {
+  new_name_column_id = ctx$cselect()[[1]]
+}
+
 table <- ctx$client$tableSchemaService$select(schema$id, Map(function(x) x$name, schema$columns), 0, schema$nRows)
 
 table <- as_tibble(table)
@@ -86,7 +92,7 @@ if (is_paired_end == "yes") {
   
   for (i in 1:nrow(table)) {
     
-    sample_name <- select(table, ends_with(".sample"))[[1]][[i]]
+    sample_name <- select(table, all_of(new_name_column_id))[[1]][[i]]
     
     filename_r1 <- paste0(sample_name, "1.fastq.gz")
     filename_r2 <- paste0(sample_name, "2.fastq.gz")
@@ -175,19 +181,21 @@ if (is_paired_end == "yes") {
 
 save_output <- as.character(ctx$op.value('save_output_to_folder'))
 
-if (is_paired_end == "yes") {
+if (save_output == "yes") {
+  
+  output_folder_prefix <- as.character(ctx$op.value('output_folder_prefix'))
   
   # create trim galore zipped output
-  system("tar czvf trim_galore_output.gzip output_dir_*")
+  system("zip -r trim_galore_output.zip output_dir_*")
   
   # save zipped file to project folder
-  filename <- "trim_galore_output.gzip"
+  filename <- "trim_galore_output.zip"
   bytes = readBin(file(filename, 'rb'),
                   raw(),
                   n = file.info(filename)$size)
   
   fileDoc = FileDocument$new()
-  fileDoc$name = paste0(ctx$stepId, "_", filename)
+  fileDoc$name = paste0(output_folder_prefix, "_", filename)
   fileDoc$projectId = ctx$cschema$projectId
   fileDoc$size = length(bytes)
   
