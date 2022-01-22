@@ -59,9 +59,9 @@ ctx <- tercenCtx()
 schema <- find.schema.by.factor.name(ctx, names(ctx$cselect())[[1]])
 
 if (length(ctx$cselect()) == 2 ) {
-  new_name_column_id = ctx$cselect()[[2]]
+  new_name_column_id = names(ctx$cselect())[[2]]
 } else {
-  new_name_column_id = ctx$cselect()[[1]]
+  new_name_column_id = names(ctx$cselect())[[1]]
 }
 
 table <- ctx$client$tableSchemaService$select(schema$id, Map(function(x) x$name, schema$columns), 0, schema$nRows)
@@ -86,7 +86,7 @@ if (is_paired_end == "yes") {
   
   for (i in 1:nrow(table)) {
     
-    sample_name <- select(table, all_of(new_name_column_id))[[1]][[i]]
+    sample_name <- select(table, new_name_column_id)[[1]][[i]]
     
     filename_r1 <- paste0(sample_name, "1.fastq.gz")
     filename_r2 <- paste0(sample_name, "2.fastq.gz")

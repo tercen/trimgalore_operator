@@ -2,8 +2,8 @@ library(tercen)
 library(dplyr)
 library(stringr)
 
-options("tercen.workflowId" = "06d4d91bf720350a985388b51902fb6e")
-options("tercen.stepId"     = "53589f29-002e-4929-b73f-c9fcfd17de12")
+options("tercen.workflowId" = "b09f25d899d082c8e044aa0e7200d82f")
+options("tercen.stepId"     = "d775c196-71da-4c64-b804-72b538e4c3df")
 
 getOption("tercen.workflowId")
 getOption("tercen.stepId")
@@ -65,9 +65,9 @@ ctx <- tercenCtx()
 schema <- find.schema.by.factor.name(ctx, names(ctx$cselect())[[1]])
 
 if (length(ctx$cselect()) == 2 ) {
-  new_name_column_id = ctx$cselect()[[2]]
+  new_name_column_id = names(ctx$cselect())[[2]]
 } else {
-  new_name_column_id = ctx$cselect()[[1]]
+  new_name_column_id = names(ctx$cselect())[[1]]
 }
 
 table <- ctx$client$tableSchemaService$select(schema$id, Map(function(x) x$name, schema$columns), 0, schema$nRows)
@@ -92,7 +92,7 @@ if (is_paired_end == "yes") {
   
   for (i in 1:nrow(table)) {
     
-    sample_name <- select(table, all_of(new_name_column_id))[[1]][[i]]
+    sample_name <- select(table, new_name_column_id)[[1]][[i]]
     
     filename_r1 <- paste0(sample_name, "1.fastq.gz")
     filename_r2 <- paste0(sample_name, "2.fastq.gz")
