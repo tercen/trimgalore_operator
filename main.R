@@ -196,6 +196,8 @@ if (save_output == "yes") {
   fileDoc = ctx$client$fileService$upload(fileDoc, bytes)
   
 }
+                                                             
+print(parallel::detectCores())
 
 output_table %>%
   mutate(.ci = 1) %>%
