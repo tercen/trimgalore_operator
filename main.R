@@ -196,11 +196,10 @@ if (save_output == "yes") {
   fileDoc = ctx$client$fileService$upload(fileDoc, bytes)
   
 }
-                                                             
-print(parallel::detectCores())
-
+                                                    
 output_table %>%
-  mutate(.ci = 1) %>%
+  mutate(.ci = 1,
+        n_cores_detected = parallel::detectCores()) %>%
   ctx$addNamespace() %>%
   ctx$save()
 
