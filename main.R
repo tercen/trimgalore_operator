@@ -54,8 +54,7 @@ if (is_paired_end == "yes") {
 }
 
                                                     
-output_table %>%
-  mutate(.ci = 1,
+tibble(.ci = 1,
         n_cores_detected = parallel::detectCores()) %>%
   ctx$addNamespace() %>%
   ctx$save()
