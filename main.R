@@ -46,6 +46,8 @@ if (is_paired_end == "yes") {
     
     print(cmd)
     
+    system("sleep 0.5")
+
     system(cmd)
 
   }
